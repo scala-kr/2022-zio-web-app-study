@@ -24,21 +24,25 @@ class TestAppDriver(port: Int, backend: SttpBackend[Task, Any]) {
       .mapError(_.merge)
 
   def addTodo(todo: Todo) =
-    basicRequest.post(uri"http://localhost:$port/todo")
+    basicRequest.post(uri"http://localhost:$port/todos")
       .body(todo)
       .send(backend)
 }
 
 object TestAppDriver {
 
-  val layer: ZLayer[Any with EventLoopGroup with ServerChannelFactory with SttpBackend[Task, Any], Throwable, TestAppDriver] =
-    ZLayer.scoped {
-      for {
-        backend <- ZIO.service[SttpBackend[Task, Any]]
-        start <- zhttp.service.Server.app(TodoApp.httpApp)
-          .withPort(0)
-          .make
-      } yield new TestAppDriver(start.port, backend)
+  val layer: ZLayer[ServerChannelFactory with EventLoopGroup, Throwable, TestAppDriver] = {
+    HttpClientZioBackend.layer() ++
+      TodoApp.layer >>>
+      ZLayer.scoped {
+        for {
+          todoApp <- ZIO.service[TodoApp]
+          backend <- ZIO.service[SttpBackend[Task, Any]]
+          start <- zhttp.service.Server.app(todoApp.httpApp)
+            .withPort(0)
+            .make
+        } yield new TestAppDriver(start.port, backend)
+      }
     }
 
 }
@@ -52,11 +56,6 @@ object TodoAppSpec extends ZIOSpecDefault {
           resp <- ZIO.serviceWithZIO[TestAppDriver](_.getHello)
         } yield assertTrue(resp == "hello")
       },
-      test("GET /todos") {
-        for  {
-          resp <- ZIO.serviceWithZIO[TestAppDriver](_.getList)
-        } yield assertTrue(resp == List(Todo("learn Scala")))
-      },
       test("POST /todos works") {
         for {
           driver <- ZIO.service[TestAppDriver]
@@ -65,7 +64,6 @@ object TodoAppSpec extends ZIOSpecDefault {
         } yield assertTrue(resp == List(Todo("learn ZIO")))
       }
     ).provideSome[EventLoopGroup with ServerChannelFactory](
-      HttpClientZioBackend.layer(),
       TestAppDriver.layer,
     ).provideShared(
       EventLoopGroup.auto(1),
