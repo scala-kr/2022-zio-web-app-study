@@ -4,7 +4,6 @@ import sttp.client3.ziojson._
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{EventLoopGroup, ServerChannelFactory}
 import zio._
-import zio.json.{DeriveJsonCodec, JsonCodec}
 import zio.test._
 
 
@@ -23,6 +22,11 @@ class TestAppDriver(port: Int, backend: SttpBackend[Task, Any]) {
       .map(_.body)
       .right
       .mapError(_.merge)
+
+  def addTodo(todo: Todo) =
+    basicRequest.post(uri"http://localhost:$port/todo")
+      .body(todo)
+      .send(backend)
 }
 
 object TestAppDriver {
@@ -48,10 +52,17 @@ object TodoAppSpec extends ZIOSpecDefault {
           resp <- ZIO.serviceWithZIO[TestAppDriver](_.getHello)
         } yield assertTrue(resp == "hello")
       },
-      test("GET /list") {
+      test("GET /todos") {
         for  {
           resp <- ZIO.serviceWithZIO[TestAppDriver](_.getList)
         } yield assertTrue(resp == List(Todo("learn Scala")))
+      },
+      test("POST /todos works") {
+        for {
+          driver <- ZIO.service[TestAppDriver]
+          _ <- driver.addTodo(Todo("learn ZIO"))
+          resp <- driver.getList
+        } yield assertTrue(resp == List(Todo("learn ZIO")))
       }
     ).provideSome[EventLoopGroup with ServerChannelFactory](
       HttpClientZioBackend.layer(),
