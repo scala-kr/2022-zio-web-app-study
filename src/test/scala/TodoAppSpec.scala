@@ -31,7 +31,7 @@ class TestAppDriver(port: Int, backend: SttpBackend[Task, Any]) {
 
 object TestAppDriver {
 
-  val layer: ZLayer[ServerChannelFactory with EventLoopGroup, Throwable, TestAppDriver] = {
+  val layer: ZLayer[ServerChannelFactory & EventLoopGroup, Throwable, TestAppDriver] = {
     HttpClientZioBackend.layer() ++
       TodoApp.layer >>>
       ZLayer.scoped {
@@ -63,7 +63,7 @@ object TodoAppSpec extends ZIOSpecDefault {
           resp <- driver.getList
         } yield assertTrue(resp == List(Todo("learn ZIO")))
       }
-    ).provideSome[EventLoopGroup with ServerChannelFactory](
+    ).provideSome[EventLoopGroup & ServerChannelFactory](
       TestAppDriver.layer,
     ).provideShared(
       EventLoopGroup.auto(1),
