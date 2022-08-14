@@ -29,21 +29,21 @@ object adapter {
 
     import port.in._
 
-    class TodoAdapterInMemory(todos: Ref[Chunk[Todo]]) extends ListAllTodos with SaveTodo {
+    class TodoRepositoryInMemory(todos: Ref[Chunk[Todo]]) extends ListAllTodos with SaveTodo {
 
-    override def listAllTodos: Task[List[Todo]] =
-      todos.get.map(_.toList)
+      override def listAllTodos: Task[List[Todo]] =
+        todos.get.map(_.toList)
 
-    override def saveTodo(todo: Todo): Task[Unit] =
-      todos.update(_ :+ todo).unit
-  }
+      override def saveTodo(todo: Todo): Task[Unit] =
+        todos.update(_ :+ todo).unit
+    }
 
-    object TodoAdapterInMemory {
+    object TodoRepositoryInMemory {
 
-      val layer: ZLayer[Any, Nothing, TodoAdapterInMemory] = ZLayer {
+      val layer: ZLayer[Any, Nothing, TodoRepositoryInMemory] = ZLayer {
         for {
           ref <- Ref.make(Chunk.empty[Todo])
-        } yield new TodoAdapterInMemory(ref)
+        } yield new TodoRepositoryInMemory(ref)
       }
     }
 
@@ -63,6 +63,7 @@ object adapter {
 
 
 object TodoApp {
+
   import port.in._
 
   def httpApp: Http[Hello & ListAllTodos & SaveTodo, Throwable, Request, Response] =

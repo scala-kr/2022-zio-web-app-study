@@ -1,3 +1,9 @@
+import io.getquill.jdbczio.Quill
+import io.getquill.jdbczio.Quill.DataSource
+import io.github.scottweaver.models.JdbcInfo
+import io.github.scottweaver.zio.aspect.DbMigrationAspect
+import io.github.scottweaver.zio.testcontainers.postgres.ZPostgreSQLContainer
+import org.postgresql.ds.PGSimpleDataSource
 import sttp.client3._
 import sttp.client3.httpclient.zio._
 import sttp.client3.ziojson._
@@ -5,6 +11,8 @@ import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{EventLoopGroup, ServerChannelFactory}
 import zio._
 import zio.test._
+
+import javax.sql.DataSource
 
 
 class TestAppDriver(port: Int, backend: SttpBackend[Task, Any]) {
@@ -31,7 +39,17 @@ class TestAppDriver(port: Int, backend: SttpBackend[Task, Any]) {
 
 object TestAppDriver {
 
-  val layer: ZLayer[ServerChannelFactory & EventLoopGroup, Throwable, TestAppDriver] =
+  val quillDataSource: ZLayer[JdbcInfo, Throwable, DataSource] =
+    ZLayer.service[JdbcInfo].flatMap { env =>
+      val jdbcInfo = env.get
+      val ds = new PGSimpleDataSource
+      ds.setURL(jdbcInfo.jdbcUrl)
+      ds.setUser(jdbcInfo.username)
+      ds.setPassword(jdbcInfo.password)
+      Quill.DataSource.fromDataSource(ds)
+    }
+
+  val layer: ZLayer[JdbcInfo & ServerChannelFactory & EventLoopGroup, Throwable, TestAppDriver] =
     ZLayer.scoped {
       (
         for {
@@ -43,7 +61,8 @@ object TestAppDriver {
       ).provideSome(
         HttpClientZioBackend.layer(),
         adapter.in.HelloAdapter.layer,
-        adapter.in.TodoAdapterInMemory.layer,
+        TodoRepositoryPostgres.layer,
+        quillDataSource,
       )
     }
 
@@ -52,7 +71,7 @@ object TestAppDriver {
 object TodoAppSpec extends ZIOSpecDefault {
 
   override def spec =
-    suite("TodoApp")(
+    (suite("TodoApp")(
       test("/hello works") {
         for {
           resp <- ZIO.serviceWithZIO[TestAppDriver](_.getHello)
@@ -65,8 +84,10 @@ object TodoAppSpec extends ZIOSpecDefault {
           resp <- driver.getList
         } yield assertTrue(resp == List(Todo("learn ZIO")))
       }
-    ).provideSome[EventLoopGroup & ServerChannelFactory](
+    ) @@ DbMigrationAspect.migrate()()).provideSome[EventLoopGroup & ServerChannelFactory](
       TestAppDriver.layer,
+      ZPostgreSQLContainer.live,
+      ZPostgreSQLContainer.Settings.default,
     ).provideShared(
       EventLoopGroup.auto(1),
       ServerChannelFactory.auto,
