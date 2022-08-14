@@ -31,18 +31,20 @@ class TestAppDriver(port: Int, backend: SttpBackend[Task, Any]) {
 
 object TestAppDriver {
 
-  val layer: ZLayer[ServerChannelFactory & EventLoopGroup, Throwable, TestAppDriver] = {
-    HttpClientZioBackend.layer() ++
-      TodoApp.layer >>>
-      ZLayer.scoped {
+  val layer: ZLayer[ServerChannelFactory & EventLoopGroup, Throwable, TestAppDriver] =
+    ZLayer.scoped {
+      (
         for {
-          todoApp <- ZIO.service[TodoApp]
           backend <- ZIO.service[SttpBackend[Task, Any]]
-          start <- zhttp.service.Server.app(todoApp.httpApp)
+          start <- zhttp.service.Server.app(TodoApp.httpApp)
             .withPort(0)
             .make
         } yield new TestAppDriver(start.port, backend)
-      }
+      ).provideSome(
+        HttpClientZioBackend.layer(),
+        adapter.in.HelloAdapter.layer,
+        adapter.in.TodoAdapterInMemory.layer,
+      )
     }
 
 }
