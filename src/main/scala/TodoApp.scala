@@ -1,85 +1,46 @@
 import zhttp.http._
+import zhttp.service.Server
 import zio._
 import zio.json._
 
-
-object port {
-
-  object in {
-
-    trait Hello {
-      def hello: UIO[String]
-    }
-
-
-    trait ListAllTodos {
-      def listAllTodos: Task[List[Todo]]
-    }
-
-    trait SaveTodo {
-      def saveTodo(todo: Todo): Task[Unit]
-
-    }
-  }
+case class CreateTodo(title: String)
+object CreateTodo {
+  implicit val jsonCodecForCreateTodo: JsonCodec[CreateTodo] = DeriveJsonCodec.gen
 }
-
-object adapter {
-
-  object in {
-
-    import port.in._
-
-    class TodoAdapterInMemory(todos: Ref[Chunk[Todo]]) extends ListAllTodos with SaveTodo {
-
-    override def listAllTodos: Task[List[Todo]] =
-      todos.get.map(_.toList)
-
-    override def saveTodo(todo: Todo): Task[Unit] =
-      todos.update(_ :+ todo).unit
-  }
-
-    object TodoAdapterInMemory {
-
-      val layer: ZLayer[Any, Nothing, TodoAdapterInMemory] = ZLayer {
-        for {
-          ref <- Ref.make(Chunk.empty[Todo])
-        } yield new TodoAdapterInMemory(ref)
-      }
-    }
-
-
-    class HelloAdapter extends port.in.Hello {
-
-      override def hello: UIO[String] =
-        ZIO.succeed("hello")
-    }
-
-    object HelloAdapter {
-      val layer: ULayer[HelloAdapter] =
-        ZLayer.succeed(new HelloAdapter())
-    }
-  }
-}
-
 
 object TodoApp {
-  import port.in._
 
-  def httpApp: Http[Hello & ListAllTodos & SaveTodo, Throwable, Request, Response] =
+  def httpApp(todos: Ref[Chunk[Todo]]): Http[Any, Throwable, Request, Response] =
     Http.collectZIO[Request] {
-      case Method.GET -> !! / "hello" =>
-        ZIO.serviceWithZIO[Hello](_.hello).map(Response.text)
 
       case Method.GET -> !! / "todos" =>
         for {
-          todos <- ZIO.serviceWithZIO[ListAllTodos](_.listAllTodos)
+          todos <- todos.get.map(_.toList)
         } yield Response.json(todos.toJson)
+
+      case Method.GET -> !! / "todos" / idStr =>
+        ZIO.foreach(idStr.toLongOption) { id =>
+          todos.get.map(_.find(_.id == id))
+        }.map {
+          case Some(todo) => Response.json(todo.toJson)
+          case None => Response.status(Status.NotFound)
+        }
 
       case req @ Method.POST -> !! / "todos" =>
         for {
           body <- req.bodyAsCharSequence
-          todo <- ZIO.from(body.fromJson[Todo]).mapError(err => new Exception(err))
-          _ <- ZIO.serviceWithZIO[SaveTodo](_.saveTodo(todo))
-        } yield Response.json("""{ "succeess": true }""")
+          form <- ZIO.from(body.fromJson[CreateTodo]).mapError(err => new Exception(err))
+          newTodo <- todos.modify { all =>
+            val todo = Todo(all.length + 1, form.title)
+            (todo, all :+ todo)
+          }
+        } yield Response.json(newTodo.toJson).setStatus(Status.Created)
     }
+}
+
+object Main extends ZIOAppDefault {
+  def run =  for {
+    ref <- Ref.make(Chunk.empty[Todo])
+    _ <- Server.start(8080, TodoApp.httpApp(ref))
+  } yield ()
 }
