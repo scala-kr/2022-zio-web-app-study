@@ -31,6 +31,16 @@ class TestDriver(port: Int, backend: SttpBackend[Task, ZioStreams with capabilit
 
     } yield body
 
+  def add(title: String) =
+    for {
+      // { "title": "A new item" }
+      resp <- basicRequest.post(uri"http://localhost:${port}/todo")
+        .body(s"""{"title":"$title"}""")
+        .header("Content-Type", "application/json")
+        .response(asJsonAlways[Todo])
+        .send(backend)
+      body <- ZIO.from(resp.body)
+    } yield body
 }
 
 object TestDriver {

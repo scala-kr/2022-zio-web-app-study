@@ -15,8 +15,9 @@ class TodoRepository {
     Todo(2, "ZIO study")
   )
 
-  def findAll: Chunk[Todo] = todoList
-  def create(title: String): Todo = {
+  def findAll: Task[Chunk[Todo]] = ZIO.succeed(todoList)
+
+  def create(title: String): Task[Todo] = ZIO.succeed {
     val id = todoList.size + 1
     val newTodo = Todo(id, title)
     todoList = todoList :+ newTodo
@@ -33,9 +34,7 @@ object Main extends ZIOAppDefault {
       ZIO.succeed(Response.text("hello"))
 
     case Method.GET -> !! / "todo" / "list" =>
-      ZIO.succeed(Response.json(
-        todoRepo.findAll.toJson
-      ))
+      todoRepo.findAll.map(list =>  Response.json(list.toJson))
 
     case req @ Method.POST -> !! / "todo" =>
       for {
@@ -43,7 +42,7 @@ object Main extends ZIOAppDefault {
         form <- ZIO.from(text.fromJson[CreateTodoForm])
           .mapError(msg => new Exception(msg))
 
-        newTodo = todoRepo.create(form.title)
+        newTodo <- todoRepo.create(form.title)
       } yield {
         Response.json(newTodo.toJson)
       }
