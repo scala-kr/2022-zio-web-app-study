@@ -36,6 +36,7 @@ class TestDriver(port: Int, backend: SttpBackend[Task, ZioStreams with capabilit
 object TestDriver {
   def hello: RIO[TestDriver, String] = ZIO.serviceWithZIO[TestDriver](_.hello)
   def list: RIO[TestDriver, List[Todo]] = ZIO.serviceWithZIO[TestDriver](_.list)
+  def add(title: String): RIO[TestDriver, Todo] = ZIO.serviceWithZIO[TestDriver](_.add(title))
 
   val layer: ZLayer[Server.Start, Throwable, TestDriver] =
     ZLayer {
@@ -62,6 +63,20 @@ object MainSpec extends ZIOSpec[EventLoopGroup with ServerChannelFactory] {
       )
       assertZIO(TestDriver.list)(equalTo(expected))
 
+    },
+    test("POST /todo adds a todo item to the list") {
+      val title = "A new item"
+      // old list doesn't have the todo item
+      // add a todo with title
+      // new items exists in the list
+      for {
+        oldList <- TestDriver.list
+        _ <- assertTrue(!oldList.exists(_.title == title))
+
+        newItem <- TestDriver.add(title)
+        newList <- TestDriver.list
+
+      } yield assertTrue(newList.contains(newItem))
     }
   ).provideSome(
     TestDriver.layer,

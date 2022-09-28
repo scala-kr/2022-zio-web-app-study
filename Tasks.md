@@ -4,9 +4,9 @@
 ## Tasks
 - [x] hello 텍스트 출력하는 웹서버 띄우기
 - [x] 하드코딩된 TODO 리스트 출력
-- [ ] 한 개만 보기
 - [ ] in memory TODO 등록
-- [ ] in memory TODO 삭제
+- [ ] factor out repository
+- [ ] postgresql
 
 ### Future tasks
 - [ ] 설정파일
