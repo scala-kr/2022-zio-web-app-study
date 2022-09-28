@@ -12,6 +12,8 @@ import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{EventLoopGroup, Server, ServerChannelFactory}
 import zio.test.Assertion.equalTo
 
+import javax.sql.DataSource
+
 
 
 class TestDriver(port: Int, backend: SttpBackend[Task, ZioStreams with capabilities.WebSockets]) {
@@ -91,21 +93,9 @@ object MainSpec extends ZIOSpec[EventLoopGroup with ServerChannelFactory] {
 
       } yield assertTrue(newList.contains(newItem))
     },
-    test("temp: testcontainer is up") {
-      for {
-        jdbcInfo <- ZIO.service[JdbcInfo]
-        _ <- Console.printLine(jdbcInfo.toString)
-      } yield assertCompletes
-    },
-    test("temp: testcontainer is up 2") {
-      for {
-        jdbcInfo <- ZIO.service[JdbcInfo]
-        _ <- Console.printLine(jdbcInfo.toString)
-      } yield assertCompletes
-    },
-  ).provideSome[Scope with Environment with JdbcInfo](
+  ).provideSome[Scope with Environment with DataSource](
     TestDriver.layer,
-    TodoRepositoryInMemory.layer,
+    TodoRepositoryPostgresql.layer,
     HttpServer.layer,
     ZLayer {
       for {
@@ -113,8 +103,9 @@ object MainSpec extends ZIOSpec[EventLoopGroup with ServerChannelFactory] {
         start <- Server.app(httpServer.httpApp).withPort(0).make
       } yield start
     }
-  ) @@ DbMigrationAspect.migrate()()).provideSomeShared(
-    ZPostgreSQLContainer.Settings.default,
-    ZPostgreSQLContainer.live
-  )
+  ) @@ DbMigrationAspect.migrate()() @@ TestAspect.sequential)
+    .provideSomeShared(
+      ZPostgreSQLContainer.Settings.default,
+      ZPostgreSQLContainer.live
+    )
 }
