@@ -8,13 +8,25 @@ object CreateTodoForm {
   implicit val zioJsonCodecForCreateTodoForm: zio.json.JsonCodec[CreateTodoForm] = zio.json.DeriveJsonCodec.gen
 }
 
+class TodoRepository {
 
-object Main extends ZIOAppDefault {
-
-  val todoList = List(
+  private var todoList = Chunk(
     Todo(1, "scala study"),
     Todo(2, "ZIO study")
   )
+
+  def findAll: Chunk[Todo] = todoList
+  def create(title: String): Todo = {
+    val id = todoList.size + 1
+    val newTodo = Todo(id, title)
+    todoList = todoList :+ newTodo
+    newTodo
+  }
+}
+
+object Main extends ZIOAppDefault {
+
+  val todoRepo = new TodoRepository
 
   val httpApp = Http.collectZIO[Request] {
     case Method.GET -> !! / "hello" =>
@@ -22,7 +34,7 @@ object Main extends ZIOAppDefault {
 
     case Method.GET -> !! / "todo" / "list" =>
       ZIO.succeed(Response.json(
-        todoList.toJson
+        todoRepo.findAll.toJson
       ))
 
     case req @ Method.POST -> !! / "todo" =>
@@ -31,10 +43,8 @@ object Main extends ZIOAppDefault {
         form <- ZIO.from(text.fromJson[CreateTodoForm])
           .mapError(msg => new Exception(msg))
 
-        id = todoList.size + 1
-        newTodo = Todo(id, form.title)
+        newTodo = todoRepo.create(form.title)
       } yield {
-        todoList = todoList :+ newTodo
         Response.json(newTodo.toJson)
       }
   }

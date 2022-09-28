@@ -5,7 +5,7 @@
 - [x] hello 텍스트 출력하는 웹서버 띄우기
 - [x] 하드코딩된 TODO 리스트 출력
 - [ ] in memory TODO 등록
-- [ ] factor out repository
+    - [ ] factor out repository
 - [ ] postgresql
 
 ### Future tasks
