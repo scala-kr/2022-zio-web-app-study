@@ -1,3 +1,5 @@
+import io.github.scottweaver.models.JdbcInfo
+import io.github.scottweaver.zio.testcontainers.postgres.ZPostgreSQLContainer
 import sttp.capabilities
 import sttp.capabilities.zio.ZioStreams
 import zio._
@@ -59,7 +61,7 @@ object TestDriver {
 
 object MainSpec extends ZIOSpec[EventLoopGroup with ServerChannelFactory] {
 
-  override val bootstrap: ZLayer[Scope, Any, EventLoopGroup with ServerChannelFactory] =
+  override val bootstrap: ZLayer[Scope, Any, Environment] =
     EventLoopGroup.auto(1) ++ ServerChannelFactory.auto
 
   val spec = suite("Main")(
@@ -87,8 +89,20 @@ object MainSpec extends ZIOSpec[EventLoopGroup with ServerChannelFactory] {
         newList <- TestDriver.list
 
       } yield assertTrue(newList.contains(newItem))
-    }
-  ).provideSome(
+    },
+    test("temp: testcontainer is up") {
+      for {
+        jdbcInfo <- ZIO.service[JdbcInfo]
+        _ <- Console.printLine(jdbcInfo.toString)
+      } yield assertCompletes
+    },
+    test("temp: testcontainer is up 2") {
+      for {
+        jdbcInfo <- ZIO.service[JdbcInfo]
+        _ <- Console.printLine(jdbcInfo.toString)
+      } yield assertCompletes
+    },
+  ).provideSome[Scope with Environment with JdbcInfo](
     TestDriver.layer,
     TodoRepository.layer,
     HttpServer.layer,
@@ -98,5 +112,8 @@ object MainSpec extends ZIOSpec[EventLoopGroup with ServerChannelFactory] {
         start <- Server.app(httpServer.httpApp).withPort(0).make
       } yield start
     }
+  ).provideSomeShared(
+    ZPostgreSQLContainer.Settings.default,
+    ZPostgreSQLContainer.live
   )
 }

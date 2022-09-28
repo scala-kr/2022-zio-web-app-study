@@ -4,9 +4,12 @@
 ## Tasks
 - [x] hello 텍스트 출력하는 웹서버 띄우기
 - [x] 하드코딩된 TODO 리스트 출력
-- [ ] in memory TODO 등록
-    - [ ] factor out repository
-- [ ] postgresql
+- [x] in memory TODO 등록
+    - [x] factor out repository
+- [ ] postgresql repository
+  - [ ] docker test container
+  - [ ] flyway schema 
+  - [ ] quill query
 
 ### Future tasks
 - [ ] 설정파일
