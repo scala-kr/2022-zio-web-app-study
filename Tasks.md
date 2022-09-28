@@ -6,10 +6,10 @@
 - [x] 하드코딩된 TODO 리스트 출력
 - [x] in memory TODO 등록
     - [x] factor out repository
-- [ ] postgresql repository
+- [x] postgresql repository
   - [x] docker test container
-  - [ ] flyway schema 
-  - [ ] quill query
+  - [x] flyway schema 
+  - [x] quill query
 
 ### Future tasks
 - [ ] 설정파일
