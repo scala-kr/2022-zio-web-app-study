@@ -3,6 +3,12 @@ import zio.json._
 import zhttp.http._
 import zhttp.service.Server
 
+case class CreateTodoForm(title: String)
+object CreateTodoForm {
+  implicit val zioJsonCodecForCreateTodoForm: zio.json.JsonCodec[CreateTodoForm] = zio.json.DeriveJsonCodec.gen
+}
+
+
 object Main extends ZIOAppDefault {
 
   val todoList = List(
@@ -18,6 +24,19 @@ object Main extends ZIOAppDefault {
       ZIO.succeed(Response.json(
         todoList.toJson
       ))
+
+    case req @ Method.POST -> !! / "todo" =>
+      for {
+        text <- req.body.asCharSeq
+        form <- ZIO.from(text.fromJson[CreateTodoForm])
+          .mapError(msg => new Exception(msg))
+
+        id = todoList.size + 1
+        newTodo = Todo(id, form.title)
+      } yield {
+        todoList = todoList :+ newTodo
+        Response.json(newTodo.toJson)
+      }
   }
 
   override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
