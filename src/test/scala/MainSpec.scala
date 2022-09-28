@@ -90,6 +90,7 @@ object MainSpec extends ZIOSpec[EventLoopGroup with ServerChannelFactory] {
     }
   ).provideSome(
     TestDriver.layer,
+    TodoRepository.layer,
     HttpServer.layer,
     ZLayer {
       for {

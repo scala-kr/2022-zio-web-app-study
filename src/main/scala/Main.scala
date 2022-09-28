@@ -26,10 +26,10 @@ class TodoRepository {
 }
 
 object TodoRepository {
-//  val layer = ???
+  val layer = ZLayer.succeed(new TodoRepository)
 }
 
-class HttpServer(todoRepo: TodoRepository) {
+case class HttpServer(todoRepo: TodoRepository) {
 
   val httpApp = Http.collectZIO[Request] {
     case Method.GET -> !! / "hello" =>
@@ -52,7 +52,8 @@ class HttpServer(todoRepo: TodoRepository) {
 }
 
 object HttpServer {
-  val layer = ZLayer.succeed(new HttpServer(new TodoRepository))
+  val layer: ZLayer[TodoRepository, Nothing, HttpServer] =
+    ZLayer.fromFunction(HttpServer.apply _)
 }
 
 object Main extends ZIOAppDefault {
@@ -64,6 +65,7 @@ object Main extends ZIOAppDefault {
 
   override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
     prog.provide(
+      TodoRepository.layer,
       HttpServer.layer
     )
 }
