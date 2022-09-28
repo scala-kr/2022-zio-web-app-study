@@ -90,8 +90,12 @@ object MainSpec extends ZIOSpec[EventLoopGroup with ServerChannelFactory] {
     }
   ).provideSome(
     TestDriver.layer,
+    HttpServer.layer,
     ZLayer {
-      Server.app(Main.httpApp).withPort(0).make
+      for {
+        httpServer <- ZIO.service[HttpServer]
+        start <- Server.app(httpServer.httpApp).withPort(0).make
+      } yield start
     }
   )
 }

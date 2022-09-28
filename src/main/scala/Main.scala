@@ -25,9 +25,11 @@ class TodoRepository {
   }
 }
 
-object Main extends ZIOAppDefault {
+object TodoRepository {
+//  val layer = ???
+}
 
-  val todoRepo = new TodoRepository
+class HttpServer(todoRepo: TodoRepository) {
 
   val httpApp = Http.collectZIO[Request] {
     case Method.GET -> !! / "hello" =>
@@ -47,7 +49,21 @@ object Main extends ZIOAppDefault {
         Response.json(newTodo.toJson)
       }
   }
+}
+
+object HttpServer {
+  val layer = ZLayer.succeed(new HttpServer(new TodoRepository))
+}
+
+object Main extends ZIOAppDefault {
+
+  val prog: ZIO[HttpServer, Throwable, Unit] = for {
+    server <- ZIO.service[HttpServer]
+    _ <- Server.start(8080, server.httpApp)
+  } yield ()
 
   override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
-    Server.start(8080, httpApp)
+    prog.provide(
+      HttpServer.layer
+    )
 }
