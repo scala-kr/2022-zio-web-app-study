@@ -7,7 +7,7 @@
 - [x] in memory TODO 등록
     - [x] factor out repository
 - [ ] postgresql repository
-  - [ ] docker test container
+  - [x] docker test container
   - [ ] flyway schema 
   - [ ] quill query
 

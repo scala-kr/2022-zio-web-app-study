@@ -1,4 +1,5 @@
 import io.github.scottweaver.models.JdbcInfo
+import io.github.scottweaver.zio.aspect.DbMigrationAspect
 import io.github.scottweaver.zio.testcontainers.postgres.ZPostgreSQLContainer
 import sttp.capabilities
 import sttp.capabilities.zio.ZioStreams
@@ -64,7 +65,7 @@ object MainSpec extends ZIOSpec[EventLoopGroup with ServerChannelFactory] {
   override val bootstrap: ZLayer[Scope, Any, Environment] =
     EventLoopGroup.auto(1) ++ ServerChannelFactory.auto
 
-  val spec = suite("Main")(
+  val spec = (suite("Main")(
     test("GET /hello returns 'hello'") {
       assertZIO(TestDriver.hello)(equalTo("hello"))
     },
@@ -112,7 +113,7 @@ object MainSpec extends ZIOSpec[EventLoopGroup with ServerChannelFactory] {
         start <- Server.app(httpServer.httpApp).withPort(0).make
       } yield start
     }
-  ).provideSomeShared(
+  ) @@ DbMigrationAspect.migrate()()).provideSomeShared(
     ZPostgreSQLContainer.Settings.default,
     ZPostgreSQLContainer.live
   )
