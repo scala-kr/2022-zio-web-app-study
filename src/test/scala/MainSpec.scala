@@ -105,7 +105,7 @@ object MainSpec extends ZIOSpec[EventLoopGroup with ServerChannelFactory] {
     },
   ).provideSome[Scope with Environment with JdbcInfo](
     TestDriver.layer,
-    TodoRepository.layer,
+    TodoRepositoryInMemory.layer,
     HttpServer.layer,
     ZLayer {
       for {

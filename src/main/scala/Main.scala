@@ -8,26 +8,9 @@ object CreateTodoForm {
   implicit val zioJsonCodecForCreateTodoForm: zio.json.JsonCodec[CreateTodoForm] = zio.json.DeriveJsonCodec.gen
 }
 
-class TodoRepository {
 
-  private var todoList = Chunk(
-    Todo(1, "scala study"),
-    Todo(2, "ZIO study")
-  )
 
-  def findAll: Task[Chunk[Todo]] = ZIO.succeed(todoList)
 
-  def create(title: String): Task[Todo] = ZIO.succeed {
-    val id = todoList.size + 1
-    val newTodo = Todo(id, title)
-    todoList = todoList :+ newTodo
-    newTodo
-  }
-}
-
-object TodoRepository {
-  val layer = ZLayer.succeed(new TodoRepository)
-}
 
 case class HttpServer(todoRepo: TodoRepository) {
 
@@ -65,7 +48,7 @@ object Main extends ZIOAppDefault {
 
   override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
     prog.provide(
-      TodoRepository.layer,
+      TodoRepositoryInMemory.layer,
       HttpServer.layer
     )
 }
