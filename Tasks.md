@@ -13,7 +13,6 @@
 
 ### Future tasks
 - [ ] 설정파일
-- [ ] 실제 데이터베이스
 - [ ] logging (after zio-http 2.0.0-RC11)
  
 - [ ] docker 등 패키징

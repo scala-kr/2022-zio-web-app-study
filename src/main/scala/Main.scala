@@ -41,14 +41,16 @@ object HttpServer {
 
 object Main extends ZIOAppDefault {
 
-  val prog: ZIO[HttpServer, Throwable, Unit] = for {
+  val prog: ZIO[HttpServer with AppConfig, Throwable, Unit] = for {
     server <- ZIO.service[HttpServer]
-    _ <- Server.start(8080, server.httpApp)
+    config <- ZIO.service[AppConfig]
+    _ <- Server.start(config.http.port, server.httpApp)
   } yield ()
 
   override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
     prog.provide(
       TodoRepositoryInMemory.layer,
-      HttpServer.layer
+      HttpServer.layer,
+      AppConfig.layer,
     )
 }
