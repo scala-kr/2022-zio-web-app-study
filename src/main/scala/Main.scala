@@ -2,6 +2,7 @@ import zio._
 import zio.json._
 import zhttp.http._
 import zhttp.service.Server
+import zio.logging.backend.SLF4J
 
 case class CreateTodoForm(title: String)
 object CreateTodoForm {
@@ -41,14 +42,22 @@ object HttpServer {
 
 object Main extends ZIOAppDefault {
 
+  val logging =
+    Runtime.removeDefaultLoggers >>> SLF4J.slf4j
+
   val prog: ZIO[HttpServer with AppConfig, Throwable, Unit] = for {
+    _ <- ZIO.logInfo("Loading HTTP server...")
     server <- ZIO.service[HttpServer]
+    _ <- ZIO.logInfo("Loading AppConfig...")
     config <- ZIO.service[AppConfig]
+
+    _ <- ZIO.logInfo(s"Starting HTTP Server at port ${config.http.port}...")
     _ <- Server.start(config.http.port, server.httpApp)
   } yield ()
 
   override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
     prog.provide(
+      logging,
       TodoRepositoryInMemory.layer,
       HttpServer.layer,
       AppConfig.layer,

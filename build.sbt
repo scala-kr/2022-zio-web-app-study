@@ -13,6 +13,8 @@ libraryDependencies ++= Seq(
   "dev.zio" %% "zio-config" % V.zioConfig,
   "dev.zio" %% "zio-config-magnolia" % V.zioConfig,
   "dev.zio" %% "zio-config-typesafe" % V.zioConfig,
+  "dev.zio" %% "zio-logging" % "2.1.1",
+  "dev.zio" %% "zio-logging-slf4j" % "2.1.1",
   "com.softwaremill.sttp.client3" %% "zio" % V.sttp,
   "com.softwaremill.sttp.client3" %% "zio-json" % V.sttp,
   "io.d11" %% "zhttp" % "2.0.0-RC11",
