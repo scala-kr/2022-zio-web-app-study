@@ -1,8 +1,10 @@
+import io.netty.util.internal.logging.{InternalLoggerFactory, Slf4JLoggerFactory}
+import org.slf4j.impl.{StaticLoggerBinder, ZioLoggerFactory}
 import zio._
 import zio.json._
 import zhttp.http._
 import zhttp.service.Server
-import zio.logging.backend.SLF4J
+import zio.logging.slf4j.bridge.Slf4jBridge
 
 case class CreateTodoForm(title: String)
 object CreateTodoForm {
@@ -43,7 +45,9 @@ object HttpServer {
 object Main extends ZIOAppDefault {
 
   val logging =
-    Runtime.removeDefaultLoggers >>> SLF4J.slf4j
+    Runtime.removeDefaultLoggers >>>
+      zio.logging.console(logLevel = LogLevel.All) >>>
+      Slf4jBridge.initialize
 
   val prog: ZIO[HttpServer with AppConfig, Throwable, Unit] = for {
     _ <- ZIO.logInfo("Loading HTTP server...")
