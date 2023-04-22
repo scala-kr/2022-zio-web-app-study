@@ -1,4 +1,3 @@
-import io.github.scottweaver.models.JdbcInfo
 import io.github.scottweaver.zio.aspect.DbMigrationAspect
 import io.github.scottweaver.zio.testcontainers.postgres.ZPostgreSQLContainer
 import sttp.capabilities
@@ -8,8 +7,9 @@ import zio.test._
 import sttp.client3._
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import sttp.client3.ziojson._
-import zhttp.service.server.ServerChannelFactory
-import zhttp.service.{EventLoopGroup, Server, ServerChannelFactory}
+import zio.config.typesafe.TypesafeConfigProvider
+import zio.http._
+import zio.http.netty.{ChannelFactories, EventLoopGroups, NettyConfig}
 import zio.test.Assertion.equalTo
 
 import javax.sql.DataSource
@@ -53,21 +53,28 @@ object TestDriver {
   def list: RIO[TestDriver, List[Todo]] = ZIO.serviceWithZIO[TestDriver](_.list)
   def add(title: String): RIO[TestDriver, Todo] = ZIO.serviceWithZIO[TestDriver](_.add(title))
 
-  val layer: ZLayer[Server.Start, Throwable, TestDriver] =
+  val layer: ZLayer[Int, Throwable, TestDriver] =
     ZLayer {
       for {
-        start <- ZIO.service[Server.Start]
+        start <- ZIO.service[Int]
         backend <- HttpClientZioBackend()
-      } yield new TestDriver(start.port, backend)
+      } yield new TestDriver(start, backend)
     }
 }
 
-object MainSpec extends ZIOSpec[EventLoopGroup with ServerChannelFactory] {
+object MainSpec extends ZIOSpecDefault {
 
-  override val bootstrap: ZLayer[Scope, Any, Environment] =
-    EventLoopGroup.auto(1) ++ ServerChannelFactory.auto
+  override val bootstrap = {
+    Runtime.setConfigProvider(
+      TypesafeConfigProvider.fromResourcePath().kebabCase
+    ) >>>
+    zio.logging.removeDefaultLoggers >>>
+      zio.logging.consoleLogger() >>>
+      zio.logging.slf4j.bridge.Slf4jBridge.initialize >>>
+      testEnvironment
+  }
 
-  val spec = (suite("Main")(
+  val spec: Spec[TestEnvironment with Scope, Throwable] = (suite("Main")(
     test("GET /hello returns 'hello'") {
       assertZIO(TestDriver.hello)(equalTo("hello"))
     },
@@ -93,18 +100,21 @@ object MainSpec extends ZIOSpec[EventLoopGroup with ServerChannelFactory] {
 
       } yield assertTrue(newList.contains(newItem))
     },
-  ).provideSome[Scope with Environment with DataSource](
+  ).provideSome[DataSource](
     TestDriver.layer,
     TodoRepositoryPostgresql.layer,
     HttpServer.layer,
+    ZLayer.succeed(Server.Config.default.port(0)) ++
+      ZLayer.succeed(NettyConfig.default.maxThreads(2)) >>>
+      Server.customized,
     ZLayer {
       for {
         httpServer <- ZIO.service[HttpServer]
-        start <- Server.app(httpServer.httpApp).withPort(0).make
-      } yield start
+        port <- Server.install(httpServer.httpApp.withDefaultErrorResponse)
+      } yield port
     }
   ) @@ DbMigrationAspect.migrate()() @@ TestAspect.sequential)
-    .provideSomeShared(
+    .provideShared(
       ZPostgreSQLContainer.Settings.default,
       ZPostgreSQLContainer.live
     )

@@ -1,9 +1,10 @@
 import io.netty.util.internal.logging.{InternalLoggerFactory, Slf4JLoggerFactory}
 import org.slf4j.impl.{StaticLoggerBinder, ZioLoggerFactory}
 import zio._
+import zio.config.typesafe.TypesafeConfigProvider
 import zio.json._
-import zhttp.http._
-import zhttp.service.Server
+import zio.http._
+import zio.http.netty.BodyExtensions
 import zio.logging.slf4j.bridge.Slf4jBridge
 
 case class CreateTodoForm(title: String)
@@ -44,26 +45,28 @@ object HttpServer {
 
 object Main extends ZIOAppDefault {
 
-  val logging =
+  override val bootstrap =
+    Runtime.setConfigProvider(
+      TypesafeConfigProvider.fromResourcePath().kebabCase
+    ) >>>
     Runtime.removeDefaultLoggers >>>
-      zio.logging.console(logLevel = LogLevel.All) >>>
+      zio.logging.consoleLogger() >>>
       Slf4jBridge.initialize
 
-  val prog: ZIO[HttpServer with AppConfig, Throwable, Unit] = for {
+  val prog: ZIO[Server with HttpServer, Throwable, Unit] = for {
     _ <- ZIO.logInfo("Loading HTTP server...")
     server <- ZIO.service[HttpServer]
     _ <- ZIO.logInfo("Loading AppConfig...")
-    config <- ZIO.service[AppConfig]
 
-    _ <- ZIO.logInfo(s"Starting HTTP Server at port ${config.http.port}...")
-    _ <- Server.start(config.http.port, server.httpApp)
+    port <- Server.install(server.httpApp.withDefaultErrorResponse)
+    _ <- ZIO.logInfo(s"HTTP server started at port $port")
+    _ <- ZIO.never
   } yield ()
 
   override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
-    prog.provide(
-      logging,
+    prog.provideSome[Scope](
       TodoRepositoryInMemory.layer,
       HttpServer.layer,
-      AppConfig.layer,
+      Server.configured("zio-study.http")
     )
 }
