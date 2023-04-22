@@ -103,14 +103,12 @@ object MainSpec extends ZIOSpecDefault {
   ).provideSome[DataSource](
     TestDriver.layer,
     TodoRepositoryPostgresql.layer,
-    HttpServer.layer,
     ZLayer.succeed(Server.Config.default.port(0)) ++
       ZLayer.succeed(NettyConfig.default.maxThreads(2)) >>>
       Server.customized,
     ZLayer {
       for {
-        httpServer <- ZIO.service[HttpServer]
-        port <- Server.install(httpServer.httpApp.withDefaultErrorResponse)
+        port <- Server.install(HttpServer.httpApp.withDefaultErrorResponse)
       } yield port
     }
   ) @@ DbMigrationAspect.migrate()() @@ TestAspect.sequential)

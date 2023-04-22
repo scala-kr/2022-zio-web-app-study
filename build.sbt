@@ -8,8 +8,13 @@ val V = new {
   val zioLogging = "2.1.12"
 }
 
+scalacOptions ++= Seq(
+  "-Ymacro-annotations"
+)
+
 libraryDependencies ++= Seq(
   "dev.zio" %% "zio" % V.zio,
+  "dev.zio" %% "zio-macros" % V.zio,
   "dev.zio" %% "zio-config" % V.zioConfig,
   "dev.zio" %% "zio-config-magnolia" % V.zioConfig,
   "dev.zio" %% "zio-config-typesafe" % V.zioConfig,
@@ -25,5 +30,6 @@ libraryDependencies ++= Seq(
   "dev.zio" %% "zio-test" % V.zio % Test,
   "dev.zio" %% "zio-test-sbt" % V.zio % Test,
 )
+
 
 Test / fork := true
